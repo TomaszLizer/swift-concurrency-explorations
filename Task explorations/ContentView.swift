@@ -185,9 +185,12 @@ struct ContentView: View {
 }
 
 @Observable
-final class TaskTest {
+final class TaskTest: Sendable {
     @MainActor
     var calledThread: ThreadType?
+    
+    @MainActor
+    init() {}
     
     // MARK: - sync
     
