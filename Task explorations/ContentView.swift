@@ -57,6 +57,16 @@ struct ContentView: View {
         }
         return calledThread ?? "Tap run to check thread"
     }
+    var funcText: String {
+        let calledThread: String?
+        switch calleeContext {
+        case .mainActor:
+            calledThread = taskTestMainActor.calledFuncThread?.description
+        case .nonIsolated:
+            calledThread = taskTestNonIsolated.calledFuncThread?.description
+        }
+        return calledThread ?? "Tap run to check thread"
+    }
     
     var body: some View {
         VStack {
@@ -74,6 +84,8 @@ struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
             
+            Text(funcText)
+                .padding()
             Text(text)
                 .padding()
             
@@ -89,6 +101,8 @@ struct ContentView: View {
     func cleanCalledThread() {
         taskTestMainActor.calledThread = nil
         taskTestNonIsolated.calledThread = nil
+        taskTestMainActor.calledFuncThread = nil
+        taskTestNonIsolated.calledFuncThread = nil
     }
     
     nonisolated func checkTaskThread(callerTask: TaskType) {
@@ -188,6 +202,8 @@ struct ContentView: View {
 final class TaskTest: Sendable {
     @MainActor
     var calledThread: ThreadType?
+    @MainActor
+    var calledFuncThread: ThreadType?
     
     @MainActor
     init() {}
@@ -195,28 +211,34 @@ final class TaskTest: Sendable {
     // MARK: - sync
     
     nonisolated func runTask() {
+        let funcThread = checkThread()
         Task {
             let threadDesc = checkThread()
             await MainActor.run {
                 calledThread = threadDesc
+                calledFuncThread = funcThread
             }
         }
     }
     
     nonisolated func runTaskMainActor() {
+        let funcThread = checkThread()
         Task { @MainActor in
             let threadDesc = checkThread()
             await MainActor.run {
                 calledThread = threadDesc
+                calledFuncThread = funcThread
             }
         }
     }
     
     nonisolated func runTaskDetached() {
+        let funcThread = checkThread()
         Task.detached {
             let threadDesc = checkThread()
             await MainActor.run {
                 self.calledThread = threadDesc
+                self.calledFuncThread = funcThread
             }
         }
     }
@@ -224,28 +246,34 @@ final class TaskTest: Sendable {
     // MARK: - async
     
     nonisolated func runTaskAsync() async {
+        let funcThread = checkThread()
         await Task {
             let threadDesc = checkThread()
             await MainActor.run {
                 calledThread = threadDesc
+                calledFuncThread = funcThread
             }
         }.value
     }
     
     nonisolated func runTaskMainActorAsync() async {
+        let funcThread = checkThread()
         await Task { @MainActor in
             let threadDesc = checkThread()
             await MainActor.run {
                 calledThread = threadDesc
+                calledFuncThread = funcThread
             }
         }.value
     }
     
     nonisolated func runTaskDetachedAsync() async {
+        let funcThread = checkThread()
         await Task.detached {
             let threadDesc = checkThread()
             await MainActor.run {
                 self.calledThread = threadDesc
+                self.calledFuncThread = funcThread
             }
         }.value
     }
@@ -256,32 +284,40 @@ final class TaskTest: Sendable {
 final class TaskTestMainActor {
     @MainActor
     var calledThread: ThreadType?
+    @MainActor
+    var calledFuncThread: ThreadType?
     
     // MARK: - sync
     
     func runTask() {
+        let funcThread = checkThread()
         Task {
             let threadDesc = checkThread()
             await MainActor.run {
                 calledThread = threadDesc
+                calledFuncThread = funcThread
             }
         }
     }
     
     func runTaskMainActor() {
+        let funcThread = checkThread()
         Task { @MainActor in
             let threadDesc = checkThread()
             await MainActor.run {
                 calledThread = threadDesc
+                calledFuncThread = funcThread
             }
         }
     }
     
     func runTaskDetached() {
+        let funcThread = checkThread()
         Task.detached {
             let threadDesc = checkThread()
             await MainActor.run {
                 self.calledThread = threadDesc
+                self.calledFuncThread = funcThread
             }
         }
     }
@@ -289,36 +325,42 @@ final class TaskTestMainActor {
     // MARK: - async
     
     func runTaskAsync() async {
+        let funcThread = checkThread()
         await Task {
             let threadDesc = checkThread()
             await MainActor.run {
                 calledThread = threadDesc
+                calledFuncThread = funcThread
             }
         }.value
     }
     
     func runTaskMainActorAsync() async {
+        let funcThread = checkThread()
         await Task { @MainActor in
             let threadDesc = checkThread()
             await MainActor.run {
                 calledThread = threadDesc
+                calledFuncThread = funcThread
             }
         }.value
     }
     
     func runTaskDetachedAsync() async {
+        let funcThread = checkThread()
         await Task.detached {
             let threadDesc = checkThread()
             await MainActor.run {
                 self.calledThread = threadDesc
+                self.calledFuncThread = funcThread
             }
         }.value
     }
 }
 
-enum ThreadType {
+enum ThreadType: Sendable {
     case main
-    case background(Thread)
+    case background(String)
     
     var description: String {
         switch self {
@@ -329,14 +371,14 @@ enum ThreadType {
         }
     }
 }
-func checkThread() -> ThreadType {
+nonisolated func checkThread() -> ThreadType {
     if Thread.isMainThread {
         print("Running on the main thread")
         return .main
     }   else {
         let currentThread = Thread.current
         print("Running on a background thread: \(currentThread)")
-        return .background(currentThread)
+        return .background(currentThread.description)
     }
 }
 
